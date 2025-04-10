@@ -16,19 +16,3 @@ export const mcp = new MCPConfiguration({
         }
     },
 });
-
-// 特定のサーバーのツールセットのみを取得するヘルパー関数
-export async function getGmailTools() {
-    const toolsets = await mcp.getToolsets();
-    return { gmail: toolsets.gmail };
-}
-
-export async function getSheetsTools() {
-    const toolsets = await mcp.getToolsets();
-    return { googleSheets: toolsets.googleSheets };
-}
-
-export async function getCalendarTools() {
-    const toolsets = await mcp.getToolsets();
-    return { googleCalendar: toolsets.googleCalendar };
-}

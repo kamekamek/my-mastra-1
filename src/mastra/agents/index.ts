@@ -20,7 +20,7 @@ export const weatherAgent = new Agent({
   tools: { weatherTool },
 });
 
-// 他のエージェントとそのヘルパー関数をインポート・エクスポート
-export { gmailAgent, generateWithGmail, streamWithGmail } from './gmailAgent';
-export { spreadSheetAgent, generateWithSheets, streamWithSheets } from './spreadSheetAgent';
-export { calendarAgent, generateWithCalendar, streamWithCalendar } from './calendarAgent';
+// 他のエージェントをインポート・エクスポート
+export { gmailAgent } from './gmailAgent';
+export { spreadSheetAgent } from './spreadSheetAgent';
+export { calendarAgent } from './calendarAgent';

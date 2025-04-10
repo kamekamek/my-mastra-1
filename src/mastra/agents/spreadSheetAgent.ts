@@ -1,7 +1,7 @@
 import { Agent } from '@mastra/core/agent';
 import { openai } from '@ai-sdk/openai';
 import { Memory } from '@mastra/memory';
-import { mcp, getSheetsTools } from '../mcp';
+import { mcp } from '../mcp';
 
 export const spreadSheetAgent = new Agent({
   name: 'SpreadSheet Agent',
@@ -33,18 +33,6 @@ export const spreadSheetAgent = new Agent({
 スプレッドシートの操作には必ずComposioのツールを使用し、手順やコマンドの提案だけにとどめないでください。
 必要なパラメータを収集してから適切なツールを呼び出してください。`,
   model: openai('gpt-4o'),
+  tools: await mcp.getTools(),
   memory: new Memory(),
 });
-
-// Google Sheetsツールを使用するためのヘルパー関数
-export async function generateWithSheets(input: string) {
-  return spreadSheetAgent.generate(input, {
-    toolsets: await getSheetsTools()
-  });
-}
-
-export async function streamWithSheets(input: string) {
-  return spreadSheetAgent.stream(input, {
-    toolsets: await getSheetsTools()
-  });
-}

@@ -22,16 +22,10 @@ export const mastra = new Mastra({
   }),
 });
 
-// エージェントとヘルパー関数をエクスポート
+// エージェントをエクスポート
 export { 
   weatherAgent, 
   gmailAgent, 
-  generateWithGmail, 
-  streamWithGmail,
   spreadSheetAgent, 
-  generateWithSheets, 
-  streamWithSheets,
-  calendarAgent,
-  generateWithCalendar, 
-  streamWithCalendar 
+  calendarAgent 
 } from './agents';
