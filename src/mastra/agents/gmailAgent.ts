@@ -1,7 +1,7 @@
 import { Agent } from '@mastra/core/agent';
 import { openai } from '@ai-sdk/openai';
 import { Memory } from '@mastra/memory';
-import { mcp } from '../mcp';
+import { gmailMCP } from '../mcp';
 
 export const gmailAgent = new Agent({
   name: 'Gmail Agent',
@@ -37,6 +37,6 @@ GmaiLの操作には必ずComposioのツールを使用し、手順やコマン�
 必要なパラメータを収集してから適切なツールを呼び出してください。`,
 
   model: openai('gpt-4o'),
-  tools: await mcp.getTools(),
+  tools: await gmailMCP.getTools(),
   memory: new Memory(),
 });

@@ -1,6 +1,6 @@
 # MCPツール統合ガイド
 
-このドキュメントでは、Mastraアプリケーションに様々なMCPサーバーを統合し、異なる役割を持つエージェントを効果的に実装する方法を説明します。
+このドキュメントでは、Mastraアプリケーションに様々なMCPサーバーを統合し、異なる役割を持つエージェントを効果的に実装する方法を説明します。パフォーマンスとリソース管理の観点から、各サービスごとに独立したMCPConfiguration インスタンスを使用する方法を推奨します。
 
 ## MCPとは
 
@@ -12,25 +12,40 @@ MCPサーバーの主な種類：
 3. **Docker化されたMCPサーバー** - コンテナ化されたMCPサーバー
 4. **SSEベースのサーバー** - Server-Sent Eventsを使用したWebサーバー
 
-## 1. MCPの設定
+## 1. サービスごとのMCP設定
 
-### 1.1 Composio.devレジストリのサーバーを使用
+### 1.1 各サービス専用のMCPConfigurationを作成
 
-複数のMCPサーバーを一つの`MCPConfiguration`オブジェクトで管理します。
+リソース競合とエラーを防ぐため、各サービスに個別のMCPConfigurationインスタンスを作成します。必ず一意のIDを指定してください。
 
 ```typescript
 // mcp/index.ts
 import { MCPConfiguration } from "@mastra/mcp";
 
-export const mcp = new MCPConfiguration({
-  id: "your-app-id",
+// Gmailサーバー用のMCPConfiguration
+export const gmailMCP = new MCPConfiguration({
+  id: "gmail-mcp", // 一意のIDを指定
   servers: {
     gmail: {
       url: new URL("https://mcp.composio.dev/gmail/your-client-id")
-    },
+    }
+  },
+});
+
+// Google Sheetsサーバー用のMCPConfiguration
+export const sheetsMCP = new MCPConfiguration({
+  id: "sheets-mcp", // 一意のIDを指定
+  servers: {
     googleSheets: {
       url: new URL("https://mcp.composio.dev/googlesheets/your-client-id")
-    },
+    }
+  },
+});
+
+// Google Calendarサーバー用のMCPConfiguration
+export const calendarMCP = new MCPConfiguration({
+  id: "calendar-mcp", // 一意のIDを指定
+  servers: {
     googleCalendar: {
       url: new URL("https://mcp.composio.dev/googlecalendar/your-client-id")
     }
@@ -38,59 +53,52 @@ export const mcp = new MCPConfiguration({
 });
 ```
 
-### 1.2 ローカルプロセスやDockerのMCPサーバーも併用する場合
+### 1.2 プロセス終了時のクリーンアップ
+
+リソースを適切に解放するために、プロセス終了時にすべてのMCP接続を切断する処理を追加します。
 
 ```typescript
-// mcp/index.ts
-import { MCPConfiguration } from "@mastra/mcp";
+// mcp/index.ts に追加
+// クリーンアップ用のヘルパー関数
+export async function disconnectAllMCP() {
+  await Promise.all([
+    gmailMCP.disconnect(),
+    sheetsMCP.disconnect(),
+    calendarMCP.disconnect()
+  ]);
+}
 
-export const mcp = new MCPConfiguration({
-  id: "your-app-id",
-  servers: {
-    // Composio.devレジストリのサーバー
-    gmail: {
-      url: new URL("https://mcp.composio.dev/gmail/your-client-id")
-    },
-    // ローカルプロセスを使用するサーバー
-    weather: {
-      command: "node",
-      args: ["./local-mcp-servers/weather-server.js"],
-      env: {
-        API_KEY: process.env.WEATHER_API_KEY
-      }
-    },
-    // Dockerコンテナを使用するサーバー
-    fetch: {
-      command: "docker",
-      args: ["run", "-i", "--rm", "mcp/fetch"],
-    }
-  },
+// プロセス終了時のクリーンアップを設定
+process.on('exit', () => {
+  disconnectAllMCP().catch(console.error);
+});
+
+// 予期しない終了時のクリーンアップを設定
+process.on('SIGINT', async () => {
+  await disconnectAllMCP();
+  process.exit(0);
 });
 ```
 
 ## 2. 役割に特化したエージェントの実装
 
-各エージェントは全てのMCPツールにアクセスできますが、**命令文（instructions）で特定のサービスに特化**した役割を明確にします。これにより、エージェントは適切なツールのみを使用するように導かれます。
+各エージェントは自身のサービスに対応するMCPConfigurationからツールを取得します。
 
 ```typescript
 // agents/gmailAgent.ts
 import { Agent } from '@mastra/core/agent';
 import { openai } from '@ai-sdk/openai';
 import { Memory } from '@mastra/memory';
-import { mcp } from '../mcp';
+import { gmailMCP } from '../mcp';
 
 export const gmailAgent = new Agent({
   name: 'Gmail Agent',
   instructions: `あなたはGmailの操作を支援するアシスタントです。
 以下のような操作をサポートします：
 - メールを送信する（GMAIL_SEND_EMAIL）
-- メールを検索する（GMAIL_FETCH_EMAILS）
-...
-
-ユーザーからの依頼に対して、必ずGmailツールを使って対応してください。
-他のサービスのツールは使用せず、Gmailの操作に集中してください。`,
+...`,
   model: openai('gpt-4o'),
-  tools: await mcp.getTools(), // 全てのツールにアクセスできるが、命令文で制限
+  tools: await gmailMCP.getTools(), // Gmailサービス専用のツールのみを使用
   memory: new Memory(),
 });
 ```
@@ -101,15 +109,18 @@ export const gmailAgent = new Agent({
 // agents/spreadSheetAgent.ts
 export const spreadSheetAgent = new Agent({
   name: 'SpreadSheet Agent',
-  instructions: `あなたはGoogle Sheetsの操作を支援するアシスタントです。
-以下のような操作をサポートします：
-- スプレッドシートの情報を取得する（GOOGLESHEETS_GET_SPREADSHEET_INFO）
-...
-
-ユーザーからの依頼に対して、必ずGoogle Sheetsツールを使って対応してください。
-他のサービスのツールは使用せず、スプレッドシートの操作に集中してください。`,
+  instructions: `あなたはGoogle Sheetsの操作を支援するアシスタントです。...`,
   model: openai('gpt-4o'),
-  tools: await mcp.getTools(), // 全てのツールにアクセスできるが、命令文で制限
+  tools: await sheetsMCP.getTools(), // Sheetsサービス専用のツールのみを使用
+  memory: new Memory(),
+});
+
+// agents/calendarAgent.ts
+export const calendarAgent = new Agent({
+  name: 'Calendar Agent',
+  instructions: `あなたはGoogle Calendarの操作を支援するアシスタントです。...`,
+  model: openai('gpt-4o'),
+  tools: await calendarMCP.getTools(), // Calendarサービス専用のツールのみを使用
   memory: new Memory(),
 });
 ```
@@ -198,47 +209,36 @@ const sheetsResponse = await spreadSheetAgent.generate("シートAの売上デ�
 
 ## 7. このアプローチの利点
 
-1. **シンプルな実装**：各エージェントが同じMCPインスタンスとツールセットを共有できるため、実装がシンプル
+1. **リソース競合の回避**: サービスごとに個別のMCPConfigurationを使用することで、リソース競合やミューテックスエラーを防止できます。
 
-2. **柔軟性**：新しいツールが追加された場合、エージェントの更新が容易で自動的に利用可能に
+2. **効率的なリソース管理**: 各エージェントは必要なサービスのみに接続するため、リソース使用量が最適化されます。
 
-3. **コード効率**：ツールセットの複製や分離が不要で、メモリ効率が良い
+3. **エラーの分離**: あるサービスで問題が発生しても、他のサービスには影響しません。
 
-4. **LLMの理解力活用**：言語モデルの文脈理解能力を活用して適切なツール選択を促進
+4. **清潔なコード構造**: 各サービスとそのツールが明確に分離され、保守性が向上します。
+
+5. **パフォーマンスの向上**: 不要なツールの読み込みを避けることで、エージェントのパフォーマンスが向上します。
 
 ## 8. 注意点
 
-1. **エージェントの命令文設計**：各エージェントの命令文（instructions）は、そのエージェントの役割に合わせて丁寧に設計することが重要です。
+1. **一意のID**: 各MCPConfigurationインスタンスには必ず一意のIDを設定してください。これはメモリリークを防ぐため重要です。
 
-2. **メモリの分離**：各エージェントは独自のメモリインスタンスを持ち、会話の履歴は各サービス内で独立して管理されます。
+2. **リソースの解放**: プロセス終了時には必ずすべてのMCP接続を切断してください。そのためのクリーンアップコードを実装することをお勧めします。
 
-3. **認証処理**：多くのMCPサービスは初回使用時にOAuth認証が必要です。認証フローをエージェントの命令文に含めることで、ユーザーへの案内がスムーズになります。
+3. **エラーハンドリング**: MCP接続のエラーを適切に処理するコードを実装してください。
 
-4. **エラーハンドリング**：ツール呼び出しでエラーが発生した場合は、わかりやすいエラーメッセージをユーザーに提供してください。
+4. **認証フロー**: 各サービスの初回使用時には認証が必要です。認証フローの説明をエージェントの命令文に含めることで、ユーザー体験が向上します。
 
-## 9. 拡張方法
+## 9. サービス追加方法
 
-新しいMCPサーバーを追加する場合は、以下の手順を実行してください：
+新しいMCPサービスを追加する場合は、以下の手順を実行してください：
 
-1. `mcp/index.ts`のサーバー定義に新しいサービスを追加
-2. 新しいサービス専用のエージェントを実装（命令文で役割を明確に）
+1. `mcp/index.ts`に新しいサービス用のMCPConfigurationを追加
+2. 新しいサービス専用のエージェントを実装
 3. `agents/index.ts`と`index.ts`を更新して新しいエージェントをエクスポート
+4. `disconnectAllMCP`関数に新しいMCP接続の切断処理を追加
 
-## 10. 代替アプローチ: ツールセットの制限
-
-もし厳密にツールセットを制限したい場合は、`getToolsets()`メソッドと`generate()`/`stream()`の`toolsets`パラメータを使用する方法もあります：
-
-```typescript
-// より厳密なツールセット制限を行いたい場合の例
-const allToolsets = await mcp.getToolsets();
-const gmailOnlyResponse = await agent.generate("クエリ", {
-  toolsets: { gmail: allToolsets.gmail }
-});
-```
-
-ただし、このアプローチは追加の実装複雑性を導入するため、通常は命令文による制御で十分です。
-
-## 11. MCPサーバー作成リソース
+## 10. MCPサーバー作成リソース
 
 独自のMCPサーバーを作成する場合は、以下のリソースが参考になります：
 
@@ -246,4 +246,4 @@ const gmailOnlyResponse = await agent.generate("クエリ", {
 - [Docker MCPサーバーの例](https://github.com/docker/mcp-servers)
 - [MCP Protocol仕様](https://github.com/model-context/protocol)
 
-この方法により、各エージェントは命令文を通じて特定の役割に集中し、Mastraアプリケーションの可読性と保守性が向上します。 
+このアプローチにより、各エージェントは特定のサービスに集中でき、リソース管理も最適化され、ミューテックスエラー（`mutex lock failed: Invalid argument`）などの問題を防止できます。 

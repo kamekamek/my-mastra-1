@@ -1,7 +1,7 @@
 import { Agent } from '@mastra/core/agent';
 import { openai } from '@ai-sdk/openai';
 import { Memory } from '@mastra/memory';
-import { mcp } from '../mcp';
+import { calendarMCP } from '../mcp';
 
 export const calendarAgent = new Agent({
   name: 'Calendar Agent',
@@ -41,6 +41,6 @@ export const calendarAgent = new Agent({
 カレンダーの操作には必ずComposioのツールを使用し、手順やコマンドの提案だけにとどめないでください。
 必要なパラメータを収集してから適切なツールを呼び出してください。`,
   model: openai('gpt-4o'),
-  tools: await mcp.getTools(),
+  tools: await calendarMCP.getTools(),
   memory: new Memory(),
 }); 
