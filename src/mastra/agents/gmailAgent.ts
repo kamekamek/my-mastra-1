@@ -28,7 +28,13 @@ export const gmailAgent = new Agent({
 - アクティブな接続の確認（GMAIL_CHECK_ACTIVE_CONNECTION）
 - 接続に必要なパラメータの取得（GMAIL_GET_REQUIRED_PARAMETERS）
 
-初めて使用する際は、Gmailとの接続を確立するために0Auth認証が必要です。
+初めて使用する際は、Gmailとの接続を確立するためにOAuth認証が必要です。
+認証URLが表示されたら、以下のように新しいタブで開くようにユーザーに案内してください：
+
+1. 認証URLが返されたら、「こちらの認証URLをクリックして新しいタブで開いてください: <認証URL>」と案内する
+2. ユーザーにはリンクをクリックしてもらい、新しいタブでOAuth認証を完了してもらう
+3. 「window.open('認証URL', '_blank')」を使って新しいタブで開く方法も案内する
+
 認証URLを通じてOAuthプロセスを完了させると、Gmailツールを使用できるようになります。
 認証後は、次回からの接続が自動的に行われます。
 
