@@ -1,7 +1,7 @@
 import { Agent } from '@mastra/core/agent';
 import { openai } from '@ai-sdk/openai';
 import { mcp } from '../mcp';
-import { MastraMemory, MemoryStorage, OpenAIEmbedder } from '@mastra/core/memory';
+import { Memory } from '@mastra/memory';
 export const spreadSheetAgent = new Agent({
   name: 'SpreadSheet Agent',
   instructions: `
@@ -30,10 +30,5 @@ export const spreadSheetAgent = new Agent({
   `,
   model: openai('gpt-4o'),
   tools: await mcp.getTools(),
-  memory: { new MastraMemory({
-    storage: new MemoryStorage(),
-    vector: new OpenAIEmbedder({
-      model: openai('text-embedding-3-small'),
-    }),
-  })},
+  memory:  new Memory(),
 });
