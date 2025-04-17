@@ -32,12 +32,23 @@ export const calendarMCP = new MCPConfiguration({
     },
 });
 
+// Chatbotサーバー用のMCPConfiguration
+export const chatbotMCP = new MCPConfiguration({
+    id: "chatbot-mcp",
+    servers: {
+        chatbot: {
+            url: new URL("https://mcp.composio.dev/chatbot/advanced-chatbot-service")
+        }
+    },
+});
+
 // プロセス終了時のクリーンアップ関数
 export async function disconnectAllMCP() {
     await Promise.all([
         gmailMCP.disconnect(),
         sheetsMCP.disconnect(),
-        calendarMCP.disconnect()
+        calendarMCP.disconnect(),
+        chatbotMCP.disconnect()
     ]);
 }
 
