@@ -24,3 +24,4 @@ export const weatherAgent = new Agent({
 export { gmailAgent } from './gmailAgent';
 export { spreadSheetAgent } from './spreadSheetAgent';
 export { calendarAgent } from './calendarAgent';
+export { chatbotAgent } from './chatbotAgent';
